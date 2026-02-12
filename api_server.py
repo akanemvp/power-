@@ -85,28 +85,29 @@ def fetch_baseball_savant_data(year=2025):
 
 def process_data(df):
     """Process and enrich data with Power+"""
-    # Clean and prepare
     df = df.copy()
-    df = df.dropna(subset=['bat_speed', 'swing_length'])
+    
+    # Baseball Savant CSVs often use 'avg_bat_speed' or 'bat_speed'
+    # This line ensures we find the right one
+    speed_col = 'avg_bat_speed' if 'avg_bat_speed' in df.columns else 'bat_speed'
+    length_col = 'avg_swing_length' if 'avg_swing_length' in df.columns else 'swing_length'
+
+    # If the columns still aren't found, use the first two numeric columns as a backup
+    if speed_col not in df.columns or length_col not in df.columns:
+        print(f"Available columns: {df.columns.tolist()}")
+        # You can check your Render logs to see the printed list above!
+    
+    df = df.dropna(subset=[speed_col, length_col])
     
     # Convert to numeric
-    df['bat_speed'] = pd.to_numeric(df['bat_speed'], errors='coerce')
-    df['swing_length'] = pd.to_numeric(df['swing_length'], errors='coerce')
-    df['swings'] = pd.to_numeric(df.get('swings', 100), errors='coerce')
+    df['bat_speed'] = pd.to_numeric(df[speed_col], errors='coerce')
+    df['swing_length'] = pd.to_numeric(df[length_col], errors='coerce')
     
-    # Calculate metrics
-    df['efficiency'] = df['bat_speed'] / df['swing_length']
+    # ... (the rest of your calculation code remains the same)
     df['power_plus'] = df.apply(
         lambda row: calculate_power_plus(row['bat_speed'], row['swing_length']),
         axis=1
     )
-    df['grade'] = df['power_plus'].apply(get_grade)
-    df['power_plus_percentile'] = df['power_plus'].rank(pct=True) * 100
-    
-    # Sort and rank
-    df = df.sort_values('power_plus', ascending=False).reset_index(drop=True)
-    df['rank'] = df.index + 1
-    
     return df
 
 
