@@ -170,7 +170,7 @@ def get_data(force_refresh=False):
 # API Routes
 
 @app.route('/')
-def home():
+def index():
     """Serve the main web app from the root folder"""
     return send_file('index.html')
     
