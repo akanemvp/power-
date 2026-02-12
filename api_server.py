@@ -84,26 +84,28 @@ def fetch_baseball_savant_data(year=2025):
 
 
 def process_data(df):
-    """Process and enrich data with Power+"""
+    """Process and enrich data with Power+ (Smarter Column Finding)"""
     df = df.copy()
     
-    # Baseball Savant CSVs often use 'avg_bat_speed' or 'bat_speed'
-    # This line ensures we find the right one
-    speed_col = 'avg_bat_speed' if 'avg_bat_speed' in df.columns else 'bat_speed'
-    length_col = 'avg_swing_length' if 'avg_swing_length' in df.columns else 'swing_length'
+    # 1. Find the Bat Speed column
+    # It looks for anything containing 'bat_speed' and takes the first one found
+    speed_cols = [c for c in df.columns if 'bat_speed' in c.lower()]
+    speed_col = speed_cols[0] if speed_cols else None
 
-    # If the columns still aren't found, use the first two numeric columns as a backup
-    if speed_col not in df.columns or length_col not in df.columns:
-        print(f"Available columns: {df.columns.tolist()}")
-        # You can check your Render logs to see the printed list above!
-    
+    # 2. Find the Swing Length column
+    length_cols = [c for c in df.columns if 'swing_length' in c.lower()]
+    length_col = length_cols[0] if length_cols else None
+
+    # 3. Handle missing columns gracefully instead of crashing
+    if not speed_col or not length_col:
+        print(f"ERROR: Could not find columns. Available: {df.columns.tolist()}")
+        return pd.DataFrame() # Return empty if data is broken
+
+    # 4. Clean and Calculate
     df = df.dropna(subset=[speed_col, length_col])
-    
-    # Convert to numeric
     df['bat_speed'] = pd.to_numeric(df[speed_col], errors='coerce')
     df['swing_length'] = pd.to_numeric(df[length_col], errors='coerce')
     
-    # ... (the rest of your calculation code remains the same)
     df['power_plus'] = df.apply(
         lambda row: calculate_power_plus(row['bat_speed'], row['swing_length']),
         axis=1
