@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power+ Calculator - Live MLB Data</title>
+    <meta name="description" content="Analyze bat speed efficiency for all MLB players in 2025. See who generates the most bat speed with the shortest swing.">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 { font-size: 3em; margin-bottom: 10px; }
+        .subtitle { opacity: 0.9; font-size: 1.2em; }
+        .last-update {
+            margin-top: 10px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        .content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 25px;
+            border-radius: 10px;
+            border-left: 5px solid #3b82f6;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #1e40af;
+        }
+        .stat-label {
+            color: #64748b;
+            margin-top: 5px;
+            font-size: 0.95em;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab:hover { background: #f8fafc; }
+        .tab.active {
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+            font-weight: bold;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .search-box {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        thead {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        th, td {
+            padding: 14px;
+            text-align: left;
+        }
+        th {
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover { background: rgba(255,255,255,0.1); }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        tbody tr:hover { background: #eff6ff; }
+        .grade-elite { color: #059669; font-weight: bold; }
+        .grade-above { color: #0284c7; font-weight: bold; }
+        .grade-average { color: #64748b; }
+        .grade-below { color: #f97316; }
+        .grade-poor { color: #dc2626; }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            height: 500px;
+        }
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.3em;
+            color: #64748b;
+        }
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        h2 {
+            color: #1e40af;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #2563eb; }
+        .btn-secondary {
+            background: #64748b;
+        }
+        .btn-secondary:hover { background: #475569; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚾ Power+ Calculator</h1>
+            <p class="subtitle">Live 2025 MLB Bat Speed Efficiency Rankings</p>
+            <p class="last-update" id="lastUpdate">Loading data...</p>
+            <button class="btn" onclick="refreshData()" style="margin-top: 10px;">
+                🔄 Refresh Data
+            </button>
+        </header>
+
+        <div class="content" id="content">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Loading 2025 MLB data...</p>
+            </div>
+
+            <div id="mainContent" style="display: none;">
+                <div class="stats-grid" id="statsGrid"></div>
+
+                <div class="tabs">
+                    <button class="tab active" onclick="showTab('leaderboard')">📊 Leaderboard</button>
+                    <button class="tab" onclick="showTab('chart')">📈 Visualization</button>
+                    <button class="tab" onclick="showTab('teams')">🏟️ By Team</button>
+                    <button class="tab" onclick="showTab('about')">ℹ️ About Power+</button>
+                </div>
+
+                <div id="leaderboard" class="tab-content active">
+                    <h2>Power+ Leaderboard</h2>
+                    <input type="text" id="searchBox" class="search-box" placeholder="Search by player name..." />
+                    
+                    <div style="margin-bottom: 20px;">
+                        <button class="btn" onclick="filterPlayers('all')">All Players</button>
+                        <button class="btn btn-secondary" onclick="filterPlayers('qualified')">Qualified (300+)</button>
+                        <button class="btn btn-secondary" onclick="filterPlayers('elite')">Elite (110+)</button>
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th onclick="sortTable('rank')">Rank ↕</th>
+                                    <th onclick="sortTable('player_name')">Player ↕</th>
+                                    <th onclick="sortTable('team')">Team ↕</th>
+                                    <th onclick="sortTable('swings')">Swings ↕</th>
+                                    <th onclick="sortTable('bat_speed')">Bat Speed ↕</th>
+                                    <th onclick="sortTable('swing_length')">Swing Length ↕</th>
+                                    <th onclick="sortTable('power_plus')">Power+ ↕</th>
+                                    <th onclick="sortTable('grade')">Grade ↕</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="chart" class="tab-content">
+                    <h2>Bat Speed vs Swing Length</h2>
+                    <div class="chart-container">
+                        <canvas id="scatterChart"></canvas>
+                    </div>
+                </div>
+
+                <div id="teams" class="tab-content">
+                    <h2>Team Analysis</h2>
+                    <div id="teamGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;"></div>
+                </div>
+
+                <div id="about" class="tab-content">
+                    <h2>About Power+</h2>
+                    <div style="max-width: 800px;">
+                        <p style="margin-bottom: 15px;">
+                            <strong>Power+</strong> measures how efficiently a player generates bat speed relative to their swing length.
+                        </p>
+                        <p style="margin-bottom: 15px;">
+                            Generally, longer swings create more bat speed (physics), but they also take more time and hurt plate discipline. 
+                            Power+ identifies players who maximize bat speed while minimizing swing length.
+                        </p>
+                        <h3 style="margin: 20px 0 10px;">Formula</h3>
+                        <pre style="background: #f8fafc; padding: 15px; border-radius: 8px; overflow-x: auto;">
+Efficiency = Bat Speed / Swing Length
+Power+ = (Player Efficiency / League Average) × 100
+
+League Average: 72 mph / 7.3 ft = 9.86</pre>
+                        <h3 style="margin: 20px 0 10px;">Grading Scale</h3>
+                        <ul style="line-height: 2;">
+                            <li class="grade-elite">110+ = Elite efficiency</li>
+                            <li class="grade-above">105-110 = Above average</li>
+                            <li class="grade-average">95-105 = Average</li>
+                            <li class="grade-below">90-95 = Below average</li>
+                            <li class="grade-poor">&lt;90 = Poor efficiency</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - UPDATE THIS to your API endpoint
+        const API_BASE_URL = '/api';  // Use '/api' for same-origin, or 'https://your-api.com/api' for external
+
+        let allData = [];
+        let filteredData = [];
+        let chart = null;
+
+        // Load data on page load
+        async function loadData() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/players`);
+                if (!response.ok) throw new Error('Failed to fetch data');
+                
+                allData = await response.json();
+                filteredData = [...allData];
+                
+                // Load summary stats
+                const summaryResponse = await fetch(`${API_BASE_URL}/stats/summary`);
+                const summary = await summaryResponse.json();
+                
+                displayStats(summary);
+                displayTable();
+                displayChart();
+                displayTeams();
+                
+                document.getElementById('lastUpdate').textContent = 
+                    `Last updated: ${new Date(summary.last_updated).toLocaleString()}`;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                
+                setupSearch();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="error">
+                        <h3>Unable to load data</h3>
+                        <p>Please try refreshing the page. If the problem persists, the API may be updating.</p>
+                        <button class="btn" onclick="location.reload()">Refresh Page</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function refreshData() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '🔄 Refreshing...';
+            
+            try {
+                await fetch(`${API_BASE_URL}/refresh`);
+                location.reload();
+            } catch (error) {
+                alert('Failed to refresh data');
+                btn.disabled = false;
+                btn.textContent = '🔄 Refresh Data';
+            }
+        }
+
+        function displayStats(summary) {
+            const stats = [
+                { label: 'Total Players', value: summary.total_players },
+                { label: 'Avg Bat Speed', value: summary.avg_bat_speed + ' mph' },
+                { label: 'Avg Swing Length', value: summary.avg_swing_length + ' ft' },
+                { label: 'Avg Power+', value: summary.avg_power_plus },
+                { label: 'Elite (110+)', value: summary.elite_count },
+                { label: 'Qualified', value: summary.qualified_count }
+            ];
+
+            document.getElementById('statsGrid').innerHTML = stats.map(s => `
+                <div class="stat-card">
+                    <div class="stat-value">${s.value}</div>
+                    <div class="stat-label">${s.label}</div>
+                </div>
+            `).join('');
+        }
+
+        function displayTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = filteredData.slice(0, 200).map(player => `
+                <tr>
+                    <td>${player.rank}</td>
+                    <td><strong>${player.player_name}</strong></td>
+                    <td>${player.team || 'N/A'}</td>
+                    <td>${player.swings}</td>
+                    <td>${player.bat_speed?.toFixed(1)} mph</td>
+                    <td>${player.swing_length?.toFixed(1)} ft</td>
+                    <td><strong>${player.power_plus}</strong></td>
+                    <td class="${getGradeClass(player.grade)}">${player.grade}</td>
+                </tr>
+            `).join('');
+        }
+
+        function displayChart() {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            
+            if (chart) chart.destroy();
+            
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Players',
+                        data: allData.slice(0, 500).map(p => ({
+                            x: p.swing_length,
+                            y: p.bat_speed,
+                            player: p.player_name,
+                            powerPlus: p.power_plus
+                        })),
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const p = context.raw;
+                                    return [p.player, `Bat Speed: ${p.y?.toFixed(1)} mph`, 
+                                           `Swing Length: ${p.x?.toFixed(1)} ft`, `Power+: ${p.powerPlus}`];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Swing Length (ft)' } },
+                        y: { title: { display: true, text: 'Bat Speed (mph)' } }
+                    }
+                }
+            });
+        }
+
+        function displayTeams() {
+            const teams = {};
+            allData.forEach(player => {
+                if (!teams[player.team]) teams[player.team] = [];
+                teams[player.team].push(player);
+            });
+
+            const teamGrid = document.getElementById('teamGrid');
+            teamGrid.innerHTML = Object.entries(teams)
+                .sort((a, b) => b[1].length - a[1].length)
+                .map(([team, players]) => {
+                    const avgPowerPlus = (players.reduce((sum, p) => sum + p.power_plus, 0) / players.length).toFixed(1);
+                    return `
+                        <div class="stat-card">
+                            <h3 style="color: #1e40af; margin-bottom: 10px;">${team}</h3>
+                            <div style="font-size: 1.5em; font-weight: bold; color: #3b82f6;">${avgPowerPlus}</div>
+                            <div style="color: #64748b; margin-top: 5px;">${players.length} players</div>
+                        </div>
+                    `;
+                }).join('');
+        }
+
+        function getGradeClass(grade) {
+            const map = {
+                'Elite': 'grade-elite', 'Above Average': 'grade-above',
+                'Average': 'grade-average', 'Below Average': 'grade-below', 'Poor': 'grade-poor'
+            };
+            return map[grade] || 'grade-average';
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        function setupSearch() {
+            document.getElementById('searchBox').addEventListener('input', function(e) {
+                const term = e.target.value.toLowerCase();
+                filteredData = allData.filter(p => 
+                    p.player_name?.toLowerCase().includes(term)
+                );
+                displayTable();
+            });
+        }
+
+        function filterPlayers(type) {
+            if (type === 'all') filteredData = [...allData];
+            else if (type === 'qualified') filteredData = allData.filter(p => p.swings >= 300);
+            else if (type === 'elite') filteredData = allData.filter(p => p.power_plus >= 110);
+            displayTable();
+        }
+
+        function sortTable(column) {
+            filteredData.sort((a, b) => {
+                if (typeof a[column] === 'string') return a[column].localeCompare(b[column]);
+                return (b[column] || 0) - (a[column] || 0);
+            });
+            displayTable();
+        }
+
+        // Initialize
+        loadData();
+    </script>
+</body>
+</html>
