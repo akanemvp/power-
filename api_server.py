@@ -4,7 +4,7 @@ Automatically fetches and updates Baseball Savant data
 Deploy to free hosting services like Render, Railway, or Fly.io
 """
 
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_file
 from flask_cors import CORS
 import pandas as pd
 import requests
@@ -170,11 +170,10 @@ def get_data(force_refresh=False):
 # API Routes
 
 @app.route('/')
-def index():
-    """Serve the main web app"""
-    return send_from_directory('static', 'index.html')
-
-
+def home():
+    """Serve the main web app from the root folder"""
+    return send_file('index.html')
+    
 @app.route('/api/players')
 def get_all_players():
     """Get all players with Power+ data"""
