@@ -282,7 +282,7 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
 
     <script>
         // Configuration - UPDATE THIS to your API endpoint
-        const API_BASE_URL = 'https://power-dmv7.onrender.com/api';// Use '/api' for same-origin, or 'https://your-api.com/api' for external
+        const API_BASE_URL = '/api';
 
         let allData = [];
         let filteredData = [];
@@ -358,19 +358,20 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
         }
 
         function displayTable() {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = filteredData.slice(0, 200).map(player => `
-                <tr>
-                    <td>${player.rank}</td>
-                    <td><strong>${player.name}</strong></td>
-                    <td>${player.team || 'N/A'}</td>
-                    <td>${player.swings}</td>
-                    <td>${player.bat_speed?.toFixed(1)} mph</td>
-                    <td>${player.swing_length?.toFixed(1)} ft</td>
-                    <td><strong>${player.power_plus}</strong></td>
-                    <td class="${getGradeClass(player.grade)}">${player.grade}</td>
-                </tr>
-            `).join('');
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = filteredData.slice(0, 200).map((player, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td><strong>${player.player_name || 'Unknown'}</strong></td>
+            <td>${player.team || 'N/A'}</td>
+            <td>${player.swings || 0}</td>
+            <td>${player.bat_speed?.toFixed(1) || 0} mph</td>
+            <td>${player.swing_length?.toFixed(1) || 0} ft</td>
+            <td><strong>${player.power_plus || 0}</strong></td>
+            <td class="${getGradeClass(player.grade)}">${player.grade || 'N/A'}</td>
+        </tr>
+    `).join('');
+}
         }
 
         function displayChart() {
@@ -383,11 +384,12 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
                 data: {
                     datasets: [{
                         label: 'Players',
-                        data: allData.slice(0, 500).map(p => ({
+                       data: allData.slice(0, 500).map(p => ({
                             x: p.swing_length,
                             y: p.bat_speed,
-                            player: p.name,
+                            player: p.player_name, // <--- FIXED
                             powerPlus: p.power_plus
+})),
                         })),
                         backgroundColor: 'rgba(59, 130, 246, 0.5)',
                         borderColor: 'rgba(59, 130, 246, 1)',
@@ -454,14 +456,16 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
             document.getElementById(tabName).classList.add('active');
         }
 
-        function setupSearch() {
-            document.getElementById('searchBox').addEventListener('input', function(e) {
-                const term = e.target.value.toLowerCase();
-                filteredData = allData.filter(p => 
-                    filteredData = allData.filter(p => p.name?.toLowerCase().includes(term));
-                displayTable();
-            });
-        }
+       function setupSearch() {
+    document.getElementById('searchBox').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        // Fixed: Use player_name instead of name
+        filteredData = allData.filter(p => 
+            p.player_name?.toLowerCase().includes(term)
+        );
+        displayTable();
+    });
+}
 
         function filterPlayers(type) {
             if (type === 'all') filteredData = [...allData];
@@ -476,7 +480,6 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
                 return (b[column] || 0) - (a[column] || 0);
             });
             displayTable();
-        }
 
         // Initialize
         loadData();
