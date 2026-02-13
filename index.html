@@ -362,7 +362,7 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
             tbody.innerHTML = filteredData.slice(0, 200).map(player => `
                 <tr>
                     <td>${player.rank}</td>
-                    <td><strong>${player.player_name}</strong></td>
+                    <td><strong>${player.name}</strong></td>
                     <td>${player.team || 'N/A'}</td>
                     <td>${player.swings}</td>
                     <td>${player.bat_speed?.toFixed(1)} mph</td>
@@ -386,7 +386,7 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
                         data: allData.slice(0, 500).map(p => ({
                             x: p.swing_length,
                             y: p.bat_speed,
-                            player: p.player_name,
+                            player: p.name,
                             powerPlus: p.power_plus
                         })),
                         backgroundColor: 'rgba(59, 130, 246, 0.5)',
@@ -458,8 +458,7 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
             document.getElementById('searchBox').addEventListener('input', function(e) {
                 const term = e.target.value.toLowerCase();
                 filteredData = allData.filter(p => 
-                    p.player_name?.toLowerCase().includes(term)
-                );
+                    filteredData = allData.filter(p => p.name?.toLowerCase().includes(term));
                 displayTable();
             });
         }
