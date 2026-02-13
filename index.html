@@ -281,238 +281,247 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
     </div>
 
   <script>
-      // Configuration
-const API_BASE_URL = '/api';
+    // Configuration
+    const API_BASE_URL = '/api';
 
-let allData = [];
-let filteredData = [];
-let chart = null;
+    let allData = [];
+    let filteredData = [];
+    let chart = null;
+    let sortDirections = {}; // Tracker for one-way filter fix
 
-// Load data on page load
-async function loadData() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/players`);
-        if (!response.ok) throw new Error('Failed to fetch data');
-        
-        allData = await response.json();
-        filteredData = [...allData];
-        
-        const summaryResponse = await fetch(`${API_BASE_URL}/stats/summary`);
-        const summary = await summaryResponse.json();
-        
-        displayStats(summary);
-        displayTable();
-        displayChart();
-        displayTeams();
-        
-        document.getElementById('lastUpdate').textContent = 
-            `Last updated: ${new Date(summary.last_updated).toLocaleString()}`;
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-        
-        setupSearch();
-    } catch (error) {
-        console.error('Error loading data:', error);
-        document.getElementById('loading').innerHTML = `
-            <div class="error">
-                <h3>Unable to load data</h3>
-                <p>Please try refreshing the page. If the problem persists, the API may be updating.</p>
-                <button class="btn" onclick="location.reload()">Refresh Page</button>
-            </div>
-        `;
-    }
-}
-
-async function refreshData() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '🔄 Refreshing...';
-    
-    try {
-        await fetch(`${API_BASE_URL}/refresh`);
-        location.reload();
-    } catch (error) {
-        alert('Failed to refresh data');
-        btn.disabled = false;
-        btn.textContent = '🔄 Refresh Data';
-    }
-}
-
-function displayStats(summary) {
-    const stats = [
-        { label: 'Total Players', value: summary.total_players },
-        { label: 'Avg Bat Speed', value: (summary.avg_bat_speed || 0) + ' mph' },
-        { label: 'Avg Swing Length', value: (summary.avg_swing_length || 0) + ' ft' },
-        { label: 'Avg Power+', value: summary.avg_power_plus || 0 },
-        { label: 'Elite (110+)', value: summary.elite_count || 0 },
-        { label: 'Qualified', value: summary.qualified_count || 0 }
-    ];
-
-    document.getElementById('statsGrid').innerHTML = stats.map(s => `
-        <div class="stat-card">
-            <div class="stat-value">${s.value}</div>
-            <div class="stat-label">${s.label}</div>
-        </div>
-    `).join('');
-}
-
-function displayTable() {
-    const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = filteredData.slice(0, 200).map((player, index) => `
-        <tr>
-            <td>${player.rank || index + 1}</td>
-            <td><strong>${player.player_name || player.name || 'Unknown'}</strong></td>
-            <td>${player.team_abbreviation || player.team || 'N/A'}</td>
-            <td>${player.swings || 0}</td>
-            <td>${(player.bat_speed || 0).toFixed(1)} mph</td>
-            <td>${(player.swing_length || 0).toFixed(1)} ft</td>
-            <td><strong>${player.power_plus || '0.0'}</strong></td>
-            <td class="${getGradeClass(calculateGrade(player.power_plus))}">${calculateGrade(player.power_plus)}</td>
-        </tr>
-    `).join('');
-}
-
-function calculateGrade(powerPlus) {
-    if (!powerPlus || powerPlus === 'N/A') return 'N/A';
-    const score = parseFloat(powerPlus);
-    if (score >= 110) return 'Elite';
-    if (score >= 105) return 'Above Average';
-    if (score >= 95) return 'Average';
-    if (score >= 90) return 'Below Average';
-    return 'Poor';
-}
-
-function displayChart() {
-    const ctx = document.getElementById('scatterChart').getContext('2d');
-    if (chart) chart.destroy();
-    
-    chart = new Chart(ctx, {
-        type: 'scatter',
-        data: {
-            datasets: [{
-                label: 'Players',
-                data: allData.slice(0, 500).map(p => ({
-                    x: p.swing_length,
-                    y: p.bat_speed,
-                    player: p.player_name || p.name,
-                    powerPlus: p.power_plus
-                })),
-                backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                borderColor: 'rgba(59, 130, 246, 1)',
-                pointRadius: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const p = context.raw;
-                            return [
-                                p.player, 
-                                `Bat Speed: ${p.y?.toFixed(1)} mph`, 
-                                `Swing Length: ${p.x?.toFixed(1)} ft`, 
-                                `Power+: ${p.powerPlus}`
-                            ];
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: { title: { display: true, text: 'Swing Length (ft)' } },
-                y: { title: { display: true, text: 'Bat Speed (mph)' } }
-            }
-        }
-    });
-}
-
-function displayTeams() {
-    const teams = {};
-    allData.forEach(player => {
-        // Use team_abbreviation or team
-        const teamName = player.team_abbreviation || player.team || 'Unknown';
-        if (!teams[teamName]) teams[teamName] = [];
-        teams[teamName].push(player);
-    });
-
-    const teamGrid = document.getElementById('teamGrid');
-    teamGrid.innerHTML = Object.entries(teams)
-        .sort((a, b) => a[0].localeCompare(b[0])) // Sort alphabetically
-        .map(([team, players]) => {
-            const avgPowerPlus = (players.reduce((sum, p) => sum + (parseFloat(p.power_plus) || 0), 0) / players.length).toFixed(1);
-            return `
-                <div class="stat-card">
-                    <h3 style="color: #1e40af; margin-bottom: 10px;">${team}</h3>
-                    <div style="font-size: 1.5em; font-weight: bold; color: #3b82f6;">${avgPowerPlus}</div>
-                    <div style="color: #64748b; margin-top: 5px;">${players.length} players</div>
+    // Load data on page load
+    async function loadData() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/players`);
+            if (!response.ok) throw new Error('Failed to fetch data');
+            
+            allData = await response.json();
+            filteredData = [...allData];
+            
+            const summaryResponse = await fetch(`${API_BASE_URL}/stats/summary`);
+            const summary = await summaryResponse.json();
+            
+            displayStats(summary);
+            displayTable();
+            displayChart();
+            displayTeams();
+            
+            document.getElementById('lastUpdate').textContent = 
+                `Last updated: ${new Date(summary.last_updated).toLocaleString()}`;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            
+            setupSearch();
+        } catch (error) {
+            console.error('Error loading data:', error);
+            document.getElementById('loading').innerHTML = `
+                <div class="error">
+                    <h3>Unable to load data</h3>
+                    <p>Please try refreshing the page. If the problem persists, the API may be updating.</p>
+                    <button class="btn" onclick="location.reload()">Refresh Page</button>
                 </div>
             `;
-        }).join('');
-}
+        }
+    }
 
-function getGradeClass(grade) {
-    const map = {
-        'Elite': 'grade-elite', 'Above Average': 'grade-above',
-        'Average': 'grade-average', 'Below Average': 'grade-below', 'Poor': 'grade-poor'
-    };
-    return map[grade] || 'grade-average';
-}
+    async function refreshData() {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = '🔄 Refreshing...';
+        
+        try {
+            await fetch(`${API_BASE_URL}/refresh`);
+            location.reload();
+        } catch (error) {
+            alert('Failed to refresh data');
+            btn.disabled = false;
+            btn.textContent = '🔄 Refresh Data';
+        }
+    }
 
-function showTab(tabName) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    event.currentTarget.classList.add('active');
-    document.getElementById(tabName).classList.add('active');
-    if (tabName === 'chart') displayChart();
-}
+    function displayStats(summary) {
+        const stats = [
+            { label: 'Total Players', value: summary.total_players },
+            { label: 'Avg Bat Speed', value: (summary.avg_bat_speed || 0) + ' mph' },
+            { label: 'Avg Swing Length', value: (summary.avg_swing_length || 0) + ' ft' },
+            { label: 'Avg Power+', value: summary.avg_power_plus || 0 },
+            { label: 'Elite (110+)', value: summary.elite_count || 0 },
+            { label: 'Qualified', value: summary.qualified_count || 0 }
+        ];
 
-function setupSearch() {
-    document.getElementById('searchBox').addEventListener('input', function(e) {
-        const term = e.target.value.toLowerCase();
-        filteredData = allData.filter(p => {
-            const name = (p.player_name || p.name || "").toLowerCase();
-            return name.includes(term);
+        document.getElementById('statsGrid').innerHTML = stats.map(s => `
+            <div class="stat-card">
+                <div class="stat-value">${s.value}</div>
+                <div class="stat-label">${s.label}</div>
+            </div>
+        `).join('');
+    }
+
+    function displayTable() {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = filteredData.slice(0, 200).map((player, index) => `
+            <tr>
+                <td>${player.rank || index + 1}</td>
+                <td><strong>${player.player_name || player.name || 'Unknown'}</strong></td>
+                <td>${player.team_abbreviation || player.team || 'N/A'}</td>
+                <td>${player.swings || 0}</td>
+                <td>${(player.bat_speed || 0).toFixed(1)} mph</td>
+                <td>${(player.swing_length || 0).toFixed(1)} ft</td>
+                <td><strong>${player.power_plus || '0.0'}</strong></td>
+                <td class="${getGradeClass(calculateGrade(player.power_plus))}">${calculateGrade(player.power_plus)}</td>
+            </tr>
+        `).join('');
+    }
+
+    function calculateGrade(powerPlus) {
+        if (!powerPlus || powerPlus === 'N/A') return 'N/A';
+        const score = parseFloat(powerPlus);
+        if (score >= 110) return 'Elite';
+        if (score >= 105) return 'Above Average';
+        if (score >= 95) return 'Average';
+        if (score >= 90) return 'Below Average';
+        return 'Poor';
+    }
+
+    function displayChart() {
+        const ctx = document.getElementById('scatterChart').getContext('2d');
+        if (chart) chart.destroy();
+        
+        chart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Players',
+                    data: allData.slice(0, 500).map(p => ({
+                        x: p.swing_length,
+                        y: p.bat_speed,
+                        player: p.player_name || p.name,
+                        powerPlus: p.power_plus
+                    })),
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    pointRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const p = context.raw;
+                                return [
+                                    p.player, 
+                                    `Bat Speed: ${p.y?.toFixed(1)} mph`, 
+                                    `Swing Length: ${p.x?.toFixed(1)} ft`, 
+                                    `Power+: ${p.powerPlus}`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Swing Length (ft)' } },
+                    y: { title: { display: true, text: 'Bat Speed (mph)' } }
+                }
+            }
+        });
+    }
+
+    function displayTeams() {
+        const teams = {};
+        allData.forEach(player => {
+            const teamName = player.team_abbreviation || player.team || 'Unknown';
+            if (!teams[teamName]) teams[teamName] = [];
+            teams[teamName].push(player);
+        });
+
+        const teamGrid = document.getElementById('teamGrid');
+        teamGrid.innerHTML = Object.entries(teams)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([team, players]) => {
+                const avgPowerPlus = (players.reduce((sum, p) => sum + (parseFloat(p.power_plus) || 0), 0) / players.length).toFixed(1);
+                return `
+                    <div class="stat-card">
+                        <h3 style="color: #1e40af; margin-bottom: 10px;">${team}</h3>
+                        <div style="font-size: 1.5em; font-weight: bold; color: #3b82f6;">${avgPowerPlus}</div>
+                        <div style="color: #64748b; margin-top: 5px;">${players.length} players</div>
+                    </div>
+                `;
+            }).join('');
+    }
+
+    function getGradeClass(grade) {
+        const map = {
+            'Elite': 'grade-elite', 'Above Average': 'grade-above',
+            'Average': 'grade-average', 'Below Average': 'grade-below', 'Poor': 'grade-poor'
+        };
+        return map[grade] || 'grade-average';
+    }
+
+    function showTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.getElementById(tabName).classList.add('active');
+        if (tabName === 'chart') displayChart();
+    }
+
+    function setupSearch() {
+        document.getElementById('searchBox').addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            filteredData = allData.filter(p => {
+                const name = (p.player_name || p.name || "").toLowerCase();
+                return name.includes(term);
+            });
+            displayTable();
+        });
+    }
+
+    function filterPlayers(type) {
+        if (type === 'all') {
+            filteredData = [...allData];
+        } else if (type === 'qualified') {
+            filteredData = allData.filter(p => (p.swings || 0) >= 300);
+        } else if (type === 'elite') {
+            filteredData = allData.filter(p => (parseFloat(p.power_plus) || 0) >= 110);
+        }
+        displayTable();
+    }
+
+    function sortTable(column) {
+        const keyMap = {
+            'player_name': 'player_name',
+            'team': 'team_abbreviation',
+            'swings': 'swings',
+            'bat_speed': 'bat_speed',
+            'swing_length': 'swing_length',
+            'power_plus': 'power_plus',
+            'rank': 'rank'
+        };
+        
+        const key = keyMap[column] || column;
+        
+        // Toggle direction logic
+        sortDirections[key] = !sortDirections[key];
+        const isAsc = sortDirections[key];
+
+        filteredData.sort((a, b) => {
+            let valA = a[key] ?? 0;
+            let valB = b[key] ?? 0;
+
+            if (typeof valA === 'string') {
+                return isAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return isAsc ? (valA - valB) : (valB - valA);
         });
         displayTable();
-    });
-}
-
-function filterPlayers(type) {
-    if (type === 'all') {
-        filteredData = [...allData];
-    } else if (type === 'qualified') {
-        filteredData = allData.filter(p => (p.swings || 0) >= 300);
-    } else if (type === 'elite') {
-        filteredData = allData.filter(p => (parseFloat(p.power_plus) || 0) >= 110);
     }
-    displayTable();
-}
 
-function sortTable(column) {
-    // Mapping table header keys to data keys
-    const keyMap = {
-        'player_name': 'player_name',
-        'team': 'team_abbreviation',
-        'swings': 'swings',
-        'bat_speed': 'bat_speed',
-        'swing_length': 'swing_length',
-        'power_plus': 'power_plus'
-    };
-    
-    const key = keyMap[column] || column;
-
-    filteredData.sort((a, b) => {
-        let valA = a[key] || (column === 'player_name' ? a.name : 0);
-        let valB = b[key] || (column === 'player_name' ? b.name : 0);
-
-        if (typeof valA === 'string') return valA.localeCompare(valB);
-        return (valB || 0) - (valA || 0);
-    });
-    displayTable();
-}
-
-// Initialize
-loadData();
+    // Initialize
+    loadData();
+  </script>
+</body>
+</html>
