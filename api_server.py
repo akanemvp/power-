@@ -215,26 +215,40 @@ def get_player(player_name):
 
 @app.route('/api/stats/summary')
 def get_summary():
-    """Get summary statistics"""
-    data = get_data()
-    
-    if not data or isinstance(data, dict) and 'error' in data:
-        return jsonify({"error": "No data available"}), 500
-    
-    df = pd.DataFrame(data)
-    
-    summary = {
-        'total_players': len(df),
-        'avg_bat_speed': round(df['bat_speed'].mean(), 2),
-        'avg_swing_length': round(df['swing_length'].mean(), 2),
-        'avg_power_plus': round(df['power_plus'].mean(), 1),
-        'elite_count': len(df[df['power_plus'] >= 110]),
-        'above_avg_count': len(df[(df['power_plus'] >= 105) & (df['power_plus'] < 110)]),
-        'qualified_count': len(df[df['swings'] >= 300]),
-        'last_updated': datetime.now().isoformat()
-    }
-    
-    return jsonify(summary)
+    """Get summary statistics with safety checks"""
+    try:
+        data = get_data()
+        
+        if not data or (isinstance(data, dict) and 'error' in data) or len(data) == 0:
+            return jsonify({
+                'total_players': 0,
+                'avg_bat_speed': 0,
+                'avg_swing_length': 0,
+                'avg_power_plus': 0,
+                'elite_count': 0,
+                'above_avg_count': 0,
+                'qualified_count': 0,
+                'last_updated': datetime.now().isoformat()
+            })
+        
+        df = pd.DataFrame(data)
+        
+        # We use .get() and fillna to prevent crashes if columns are missing
+        summary = {
+            'total_players': len(df),
+            'avg_bat_speed': round(df['bat_speed'].mean(), 2) if 'bat_speed' in df else 0,
+            'avg_swing_length': round(df['swing_length'].mean(), 2) if 'swing_length' in df else 0,
+            'avg_power_plus': round(df['power_plus'].mean(), 1) if 'power_plus' in df else 0,
+            'elite_count': len(df[df['power_plus'] >= 110]) if 'power_plus' in df else 0,
+            'above_avg_count': len(df[(df['power_plus'] >= 105) & (df['power_plus'] < 110)]) if 'power_plus' in df else 0,
+            'qualified_count': len(df[df['swings'] >= 300]) if 'swings' in df else 0,
+            'last_updated': datetime.now().isoformat()
+        }
+        
+        return jsonify(summary)
+    except Exception as e:
+        print(f"Summary Error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route('/api/refresh')
