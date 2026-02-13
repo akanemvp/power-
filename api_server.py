@@ -262,5 +262,7 @@ def health():
 
 
 if __name__ == '__main__':
-    # For local development
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Use the port assigned by Render, or default to 5000 for local testing
+    port = int(os.environ.get("PORT", 5000))
+    # host='0.0.0.0' makes the server accessible to the internet
+    app.run(host='0.0.0.0', port=port)
