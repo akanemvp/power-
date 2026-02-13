@@ -358,20 +358,31 @@ League Average: 72 mph / 7.3 ft = 9.86</pre>
         }
 
         function displayTable() {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = filteredData.slice(0, 200).map((player, index) => `
-                <tr>
-                    <td>${index + 1}</td>
-                    <td><strong>${player.player_name || 'Unknown'}</strong></td>
-                    <td>${player.team || 'N/A'}</td>
-                    <td>${player.swings || 0}</td>
-                    <td>${player.bat_speed?.toFixed(1) || 0} mph</td>
-                    <td>${player.swing_length?.toFixed(1) || 0} ft</td>
-                    <td><strong>${player.power_plus || 0}</strong></td>
-                    <td class="${getGradeClass(player.grade)}">${player.grade || 'N/A'}</td>
-                </tr>
-            `).join('');
-        }
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = filteredData.slice(0, 200).map((player, index) => `
+        <tr>
+            <td>${player.rank || index + 1}</td>
+            <td><strong>${player.player_name || player.name || 'Unknown'}</strong></td>
+            <td>${player.team_abbreviation || player.team || 'N/A'}</td>
+            <td>${player.swings || 0}</td>
+            <td>${(player.bat_speed || 0).toFixed(1)} mph</td>
+            <td>${(player.swing_length || 0).toFixed(1)} ft</td>
+            <td><strong>${player.power_plus || '0.0'}</strong></td>
+            <td class="${getGradeClass(calculateGrade(player.power_plus))}">${calculateGrade(player.power_plus)}</td>
+        </tr>
+    `).join('');
+}
+
+// Add this helper function if it's missing to fix the Grades
+function calculateGrade(powerPlus) {
+    if (!powerPlus || powerPlus === 'N/A') return 'N/A';
+    const score = parseFloat(powerPlus);
+    if (score >= 110) return 'Elite';
+    if (score >= 105) return 'Above Average';
+    if (score >= 95) return 'Average';
+    if (score >= 90) return 'Below Average';
+    return 'Poor';
+}
 
         function displayChart() {
             const ctx = document.getElementById('scatterChart').getContext('2d');
