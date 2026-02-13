@@ -164,6 +164,7 @@ def get_data(force_refresh=False):
         return cached if cached else {"error": "No data available"}
     
     df = process_data(df)
+    df = df.replace({pd.NA: None, float('nan'): None})
     data = df.to_dict('records')
     
     save_to_cache(data)
